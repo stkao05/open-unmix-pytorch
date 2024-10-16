@@ -19,12 +19,15 @@ from openunmix import utils
 from openunmix import transforms
 
 tqdm.monitor_interval = 0
+DEBUG_SAMPLE_NUM = 5
 
 
 def train(args, unmix, encoder, device, train_sampler, optimizer):
     losses = utils.AverageMeter()
     unmix.train()
     pbar = tqdm.tqdm(train_sampler, disable=args.quiet)
+    i = 0
+
     for x, y in pbar:
         pbar.set_description("Training batch")
         x, y = x.to(device), y.to(device)
@@ -37,12 +40,19 @@ def train(args, unmix, encoder, device, train_sampler, optimizer):
         optimizer.step()
         losses.update(loss.item(), Y.size(1))
         pbar.set_postfix(loss="{:.3f}".format(losses.avg))
+
+        i += 1
+        if i >= DEBUG_SAMPLE_NUM:
+            break
+
     return losses.avg
 
 
 def valid(args, unmix, encoder, device, valid_sampler):
     losses = utils.AverageMeter()
     unmix.eval()
+    i = 0
+
     with torch.no_grad():
         for x, y in valid_sampler:
             x, y = x.to(device), y.to(device)
@@ -51,6 +61,11 @@ def valid(args, unmix, encoder, device, valid_sampler):
             Y = encoder(y)
             loss = torch.nn.functional.mse_loss(Y_hat, Y)
             losses.update(loss.item(), Y.size(1))
+
+            i += 1
+            if i >= DEBUG_SAMPLE_NUM:
+                break
+
         return losses.avg
 
 
@@ -87,16 +102,6 @@ def get_statistics(args, encoder, dataset):
 def main():
 
 
-    wandb.init(
-        project="music-hw2",
-        config={
-            "epochs": 10,
-        }
-    )
-
-
-
-
     parser = argparse.ArgumentParser(description="Open Unmix Trainer")
 
     # which target do we want to train?
@@ -130,6 +135,7 @@ def main():
     )
     parser.add_argument("--model", type=str, help="Name or path of pretrained model to fine-tune")
     parser.add_argument("--checkpoint", type=str, help="Path of checkpoint to resume training")
+    parser.add_argument("--stat", type=str, help="Path of statistics")
     parser.add_argument(
         "--audio-backend",
         type=str,
@@ -261,8 +267,18 @@ def main():
     if args.checkpoint or args.model or args.debug:
         scaler_mean = None
         scaler_std = None
+    elif args.stat:
+        stat = torch.load("statistics.pt")
+        scaler_mean = stat["scaler_mean"]
+        scaler_std = stat["scaler_std"]
+        print("load statistics: ", scaler_mean, scaler_std)
     else:
         scaler_mean, scaler_std = get_statistics(args, encoder, train_dataset)
+        stat = {
+            "scaler_mean": scaler_mean,
+            "scaler_std": scaler_std
+        }
+        torch.save(stat, "statistics.pt")
 
     max_bin = utils.bandwidth_to_max_bin(train_dataset.sample_rate, args.nfft, args.bandwidth)
 

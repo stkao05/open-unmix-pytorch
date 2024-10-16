@@ -12,6 +12,7 @@ import json
 
 import openunmix
 from openunmix import model
+import wandb
 
 
 def bandwidth_to_max_bin(rate: float, n_fft: int, bandwidth: float) -> np.ndarray:
@@ -48,6 +49,11 @@ def save_checkpoint(state: dict, is_best: bool, path: str, target: str):
     torch.save(state, cp_path)
     wandb.save(cp_path)
 
+    if state["epoch"] in [25, 50, 150]:
+        cp_path = os.path.join(path, target + "-" + str(state["epoch"]) + ".chkpnt")
+        torch.save(state, cp_path)
+        wandb.save(cp_path)
+ 
     if is_best:
         # save just the weights
         torch.save(state["state_dict"], os.path.join(path, target + ".pth"))
