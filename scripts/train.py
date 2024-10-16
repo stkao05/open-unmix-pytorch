@@ -11,6 +11,7 @@ from git import Repo
 import os
 import copy
 import torchaudio
+import wandb
 
 from openunmix import data
 from openunmix import model
@@ -84,6 +85,18 @@ def get_statistics(args, encoder, dataset):
 
 
 def main():
+
+
+    wandb.init(
+        project="music-hw2",
+        config={
+            "epochs": 10,
+        }
+    )
+
+
+
+
     parser = argparse.ArgumentParser(description="Open Unmix Trainer")
 
     # which target do we want to train?
@@ -313,6 +326,10 @@ def main():
         train_times = []
         best_epoch = 0
 
+
+    config = vars(args)
+    wandb.init(project="music-hw2", config=config)
+
     for epoch in t:
         t.set_description("Training epoch")
         end = time.time()
@@ -321,6 +338,11 @@ def main():
         scheduler.step(valid_loss)
         train_losses.append(train_loss)
         valid_losses.append(valid_loss)
+
+        wandb.log({
+            "valid_loss": valid_loss,
+            "train_loss": train_loss
+        })
 
         t.set_postfix(train_loss=train_loss, val_loss=valid_loss)
 
@@ -363,6 +385,8 @@ def main():
         if stop:
             print("Apply Early Stopping")
             break
+    
+    wandb.finish()
 
 
 if __name__ == "__main__":

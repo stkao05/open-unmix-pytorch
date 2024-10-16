@@ -44,7 +44,10 @@ def save_checkpoint(state: dict, is_best: bool, path: str, target: str):
         target (str): target name
     """
     # save full checkpoint including optimizer
-    torch.save(state, os.path.join(path, target + ".chkpnt"))
+    cp_path = os.path.join(path, target + ".chkpnt")
+    torch.save(state, cp_path)
+    wandb.save(cp_path)
+
     if is_best:
         # save just the weights
         torch.save(state["state_dict"], os.path.join(path, target + ".pth"))
