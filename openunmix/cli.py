@@ -161,6 +161,7 @@ def separate():
             audio = torch.tensor(audio)
         else:
             audio, rate = data.load_audio(input_file, start=args.start, dur=args.duration)
+
         estimates = predict.separate(
             audio=audio,
             rate=rate,
@@ -200,3 +201,6 @@ def separate():
                     torch.squeeze(estimate).to("cpu"),
                     sample_rate=separator.sample_rate,
                 )
+
+if __name__ == "__main__":
+    separate()
