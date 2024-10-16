@@ -19,7 +19,7 @@ from openunmix import utils
 from openunmix import transforms
 
 tqdm.monitor_interval = 0
-DEBUG_SAMPLE_NUM = 5
+DEBUG_SAMPLE_NUM = 1000000000
 
 
 def train(args, unmix, encoder, device, train_sampler, optimizer):
