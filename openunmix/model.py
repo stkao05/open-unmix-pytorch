@@ -8,6 +8,7 @@ from torch import Tensor
 from torch.nn import LSTM, BatchNorm1d, Linear, Parameter
 from .filtering import wiener
 from .transforms import make_filterbanks, ComplexNorm
+import librosa
 
 
 class OpenUnmix(nn.Module):
@@ -210,6 +211,9 @@ class Separator(nn.Module):
         super(Separator, self).__init__()
 
         # saving parameters
+        self.n_fft = n_fft
+        self.n_hop = n_hop
+
         self.niter = niter
         self.residual = residual
         self.softmask = softmask
@@ -239,7 +243,7 @@ class Separator(nn.Module):
             p.requires_grad = False
         self.eval()
 
-    def forward(self, audio: Tensor) -> Tensor:
+    def forward(self, audio: Tensor, griffin=False) -> Tensor:
         """Performing the separation on audio input
 
         Args:
@@ -311,10 +315,20 @@ class Separator(nn.Module):
         # getting to (nb_samples, nb_targets, channel, fft_size, n_frames, 2)
         targets_stft = targets_stft.permute(0, 5, 3, 2, 1, 4).contiguous()
 
+        if griffin:
+            # (nb_samples, nb_sources, nb_channels, nb_bins, nb_frames)
+            spec = spectrograms.permute(0, 4, 3, 2, 1)
+            inv = librosa.griffinlim(spec.numpy(),
+                                    n_fft=self.n_fft,
+                                    hop_length=self.n_hop,
+                                    center=True,
+                                    length=audio.shape[2])
+            return torch.tensor(inv)
+
         # inverse STFT
         estimates = self.istft(targets_stft, length=audio.shape[2])
-
         return estimates
+
 
     def to_dict(self, estimates: Tensor, aggregate_dict: Optional[dict] = None) -> dict:
         """Convert estimates as stacked tensor to dictionary
