@@ -1,12 +1,10 @@
 #### joe made this: http://goel.io/joe
 
-open-unmix/
 wandb/
 data/
 OSU/
 .mypy_cache
 .vscode
-*.json
 *.wav
 *.mp3
 *.pth.tar
