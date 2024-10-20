@@ -8,12 +8,20 @@ import torchaudio
 import tqdm
 import museval
 import os
+import json
+import numpy as np
+import math
 
 def run_eval():
     parser = argparse.ArgumentParser(description="Open Unmix Trainer")
-    parser.add_argument("--output", type=str)
+    parser.add_argument("--outdir", type=str)
     parser.add_argument("--musdb", type=str)
-    parser.add_argument("--wav", type=str)
+    parser.add_argument(
+        "--wav",
+        action="store_true",
+        default=False,
+        help="loads wav instead of STEMS",
+    )
     parser.add_argument("--subset", type=str)
     args, _ = parser.parse_known_args()
 
@@ -56,7 +64,6 @@ def run_eval():
             aggregate_dict=None,
             separator=separator,
             device=device,
-            griffin=True
         )
 
         Path(outdir_path / args.subset).mkdir(exist_ok=True, parents=True)
@@ -77,6 +84,29 @@ def run_eval():
         }
 
         museval.eval_mus_track(track, eval_est, output_dir=outdir_path)
+
+    print("Compute SDR median")
+
+    track_median = []
+    for track in tqdm.tqdm(mus):
+        stat_path = Path(args.outdir) / args.subset / (track.name + ".json")
+        if not os.path.exists(stat_path):
+            print(f"warning: unable to find SDR statistics at {stat_path}")
+            continue
+
+        with open(stat_path, "r") as file:
+            stat = json.load(file)
+
+        vocals = next(_ for _ in stat["targets"] if _["name"] == "vocals")
+        frame_sdr = [
+            _["metrics"]["SDR"]
+            for _ in vocals["frames"]
+            if not math.isnan(_["metrics"]["SDR"])
+        ]
+        track_median.append(np.median(frame_sdr))
+
+    print("SDR median: ", np.median(track_median))
+
 
         
 if __name__ == "__main__":
