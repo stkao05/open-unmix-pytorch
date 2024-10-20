@@ -1,3 +1,4 @@
+import argparse
 import musdb
 from pathlib import Path
 import torch
@@ -8,28 +9,32 @@ import tqdm
 import museval
 import os
 
-
 def run_eval():
-    model = "150"
-    outdir = f"separate-griffin/{model}"
-    model_path = f"open-unmix/{model}"
+    parser = argparse.ArgumentParser(description="Open Unmix Trainer")
+    parser.add_argument("--output", type=str)
+    parser.add_argument("--musdb", type=str)
+    parser.add_argument("--wav", type=str)
+    parser.add_argument("--subset", type=str)
+    args, _ = parser.parse_known_args()
+
+    model_path = "open-unmix"
     sample_rate = 44100.0
 
     use_cuda = torch.cuda.is_available()
     device = torch.device("cuda" if use_cuda else "cpu")
     print("Using ", device)
 
-    outdir_path = Path(outdir)
+    outdir_path = Path(args.outdir)
     outdir_path.mkdir(exist_ok=True, parents=True)
 
     mus = musdb.DB(
-        root="../musdb18hq",
-        is_wav=True,
-        subsets="test",
+        root=args.musdb,
+        is_wav=args.wav,
+        subsets=args.subset,
     )
     
     for track in tqdm.tqdm(mus):
-        if os.path.exists(outdir_path / "test" / f"{track.name}.json"):
+        if os.path.exists(outdir_path / args.subset / f"{track.name}.json"):
             continue
         
         separator = utils.load_separator(
@@ -54,11 +59,12 @@ def run_eval():
             griffin=True
         )
 
-        Path(outdir_path / "test").mkdir(exist_ok=True, parents=True)
+        Path(outdir_path / args.subset).mkdir(exist_ok=True, parents=True)
         
         for target, estimate in estimates.items():
-            if target != "vocals": continue
-            target_path = str(outdir_path / "test" / Path(track.name + "-" + target).with_suffix(".wav"))
+            if target != "vocals":
+                continue
+            target_path = str(outdir_path / args.subset / Path(track.name + "-" + target).with_suffix(".wav"))
             torchaudio.save(
                 target_path,
                 torch.squeeze(estimate).to("cpu"),
